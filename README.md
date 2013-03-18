@@ -3,6 +3,10 @@ elasticsearch-cloudwatch
 
 This is an Elasticsearch plugin which posts ES stats to CloudWatch.
 
+# Shortcut to installing CloudwatchPlugin
+
+    $ bin/plugin -url https://s3-eu-west-1.amazonaws.com/downloads.9apps.net/elasticsearch-CloudwatchPlugin-0.20.5.zip -install CloudwatchPlugin
+
 # Generating the installable plugin
 
 To generate the plugin for installation you need to use maven:
