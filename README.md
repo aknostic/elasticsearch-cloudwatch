@@ -3,6 +3,10 @@ elasticsearch-cloudwatch
 
 This is an Elasticsearch plugin which posts ES stats to CloudWatch.
 
+# Shortcut to installing CloudwatchPlugin
+
+    $ bin/plugin -url https://s3-eu-west-1.amazonaws.com/downloads.9apps.net/elasticsearch-CloudwatchPlugin-0.20.5.zip -install CloudwatchPlugin
+
 # Generating the installable plugin
 
 To generate the plugin for installation you need to use maven:
@@ -26,7 +30,7 @@ To uninstall it you can run:
 The plugin has some options that you can configure in the elasticsearch.yml:
 
   * metrics.cloudwatch.enabled: To enable or disable the plugin itself. True by default.
-  * metrics.cloudwatch.aws.access_key and metrics.cloudwatch.aws.secret_key: AWS credentials of the account where the data will be posted in CloudWatch. No default values.
+  * metrics.cloudwatch.aws.access_key and metrics.cloudwatch.aws.secret_key: AWS credentials of the account where the data will be posted in CloudWatch. No default values. If using IAM, it should have permission to CloudWatch PutMetricData.
   * metrics.cloudwatch.aws.region: Which region to use, of the AWS account. Default is us-east-1.
   * metrics.cloudwatch.frequency: How often to post stats. Default is "1m", every minute.
   * metrics.cloudwatch.index_stats_enabled: To enable or disable stats per index. You don't want the explosion of metrics if you have too many indexes, such as for example with Logstash where there is an index per day. False by default.
