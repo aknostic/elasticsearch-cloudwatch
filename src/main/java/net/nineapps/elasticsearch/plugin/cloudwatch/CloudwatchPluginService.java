@@ -126,7 +126,6 @@ public class CloudwatchPluginService extends AbstractLifecycleComponent<Cloudwat
 						request.setMetricData(data);
 						cloudwatch.putMetricData(request);
 						
-						logger.info("--cluster data posted---");
 					}
 					
 					public void onFailure(Throwable e) {
