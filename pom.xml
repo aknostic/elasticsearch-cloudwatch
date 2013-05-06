@@ -85,7 +85,7 @@
 		</resources>
 	</build>
 	<properties>
-		<elasticsearch.version>0.20.5</elasticsearch.version>
+		<elasticsearch.version>0.90.0</elasticsearch.version>
 	</properties>
 	<dependencies>
 		<dependency>

@@ -9,6 +9,7 @@ import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.elasticsearch.action.admin.cluster.node.stats.NodeStats;
+import org.elasticsearch.action.admin.indices.stats.CommonStatsFlags;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.collect.Lists;
 import org.elasticsearch.common.component.AbstractLifecycleComponent;
@@ -41,7 +42,6 @@ public class CloudwatchPluginService extends AbstractLifecycleComponent<Cloudwat
     private volatile Thread cloudwatchThread;
     private volatile boolean stopped;
     private final TimeValue frequency;
-    private final NodeIndicesStats nodeIndicesStats;
     private final IndicesService indicesService;
     private NodeService nodeService;
     private AWSCredentials awsCredentials;
@@ -51,11 +51,10 @@ public class CloudwatchPluginService extends AbstractLifecycleComponent<Cloudwat
 	
 	@Inject
 	public CloudwatchPluginService(Settings settings, Client client,
-			IndicesService indicesService, NodeService nodeService, NodeIndicesStats nodeIndicesStats) {
+			IndicesService indicesService, NodeService nodeService) {
 		super(settings);
 		this.client = client;
         this.nodeService = nodeService;
-        this.nodeIndicesStats = nodeIndicesStats;
         this.indicesService = indicesService;
         String accessKey = settings.get("metrics.cloudwatch.aws.access_key");
         String secretKey = settings.get("metrics.cloudwatch.aws.secret_key");
@@ -78,10 +77,6 @@ public class CloudwatchPluginService extends AbstractLifecycleComponent<Cloudwat
 
 	@Override
 	protected void doStart() throws ElasticSearchException {
-		// read some settings
-//		String host = componentSettings.get("host", "localhost");
-//		int port = componentSettings.getAsInt("port", 12345);
-
         cloudwatchThread = EsExecutors.daemonThreadFactory(settings, "cloudwatch_poster")
         		.newThread(new CloudwatchPoster());
         cloudwatchThread.start();
@@ -109,10 +104,12 @@ public class CloudwatchPluginService extends AbstractLifecycleComponent<Cloudwat
 
             	final Date now = new Date();
             	
+            	NodeIndicesStats nodeIndicesStats = indicesService.stats(false);
+            	
             	client.admin().cluster().health(new ClusterHealthRequest(), new ActionListener<ClusterHealthResponse>() {
 					public void onResponse(ClusterHealthResponse healthResponse) {
 
-						logger.info("cluster name is [{}]", healthResponse.clusterName());
+						logger.info("cluster name is [{}]", healthResponse.getClusterName());
 						
 						PutMetricDataRequest request = new PutMetricDataRequest();
 						request.setNamespace("9apps/Elasticsearch");
@@ -128,16 +125,18 @@ public class CloudwatchPluginService extends AbstractLifecycleComponent<Cloudwat
 						
 						request.setMetricData(data);
 						cloudwatch.putMetricData(request);
+						
+						logger.info("--cluster data posted---");
 					}
 					
 					public void onFailure(Throwable e) {
-						logger.warn("Asking for cluster health failed.");
+						logger.error("Asking for cluster health failed.", e);
 					}
 				});
 
 //                logger.info("node attributes is [{}]", nodeService.attributes());
-                NodeStats nodeStats = nodeService.stats(false, true, false, true, false, false, false, false, false);
-                
+                NodeStats nodeStats = nodeService.stats(new CommonStatsFlags().clear(), true, false, true, false, false, false, false, false);
+
                 String nodeAddress = nodeService.attributes().get("http_address");
                 if (nodeAddress != null) {
                 	// it might take a little time until http_address is added to the attributes
@@ -148,7 +147,7 @@ public class CloudwatchPluginService extends AbstractLifecycleComponent<Cloudwat
 
 	    			sendJVMStats(now, nodeStats, nodeAddress);
 
-	    			sendDocsStats(now, nodeAddress);
+	    			sendDocsStats(now, nodeAddress, nodeIndicesStats);
 
 	    			if (indexStatsEnabled) {
 	                    sendIndexStats(now, nodeAddress);
@@ -168,21 +167,21 @@ public class CloudwatchPluginService extends AbstractLifecycleComponent<Cloudwat
             }
 		}
 
-		private void sendDocsStats(final Date now, String nodeAddress) {
+		private void sendDocsStats(final Date now, String nodeAddress, NodeIndicesStats nodeIndicesStats) {
 			try {
 				PutMetricDataRequest request = new PutMetricDataRequest();
 				request.setNamespace("9apps/Elasticsearch");
 				List<MetricDatum> docsData = Lists.newArrayList();
-				DocsStats docsStats = nodeIndicesStats.docs();
-				long count = ( docsStats != null ? docsStats.count() : 0 );
-				long deleted = ( docsStats != null ? docsStats.deleted() : 0 );
+				DocsStats docsStats = nodeIndicesStats.getDocs();
+				long count = ( docsStats != null ? docsStats.getCount() : 0 );
+				long deleted = ( docsStats != null ? docsStats.getDeleted() : 0 );
 				docsData.add(nodeDatum(now, nodeAddress, "DocsCount", count, StandardUnit.Count));
 				docsData.add(nodeDatum(now, nodeAddress, "DocsDeleted", deleted, StandardUnit.Count));
 				
 				request.setMetricData(docsData);
 				cloudwatch.putMetricData(request);
     		} catch (AmazonClientException e) {
-    			logger.info("Exception thrown by amazon while sending DocsStats", e);
+    			logger.error("Exception thrown by amazon while sending DocsStats", e);
     		}
 		}
 
@@ -193,7 +192,7 @@ public class CloudwatchPluginService extends AbstractLifecycleComponent<Cloudwat
 				PutMetricDataRequest request = new PutMetricDataRequest();
 				request.setNamespace("9apps/Elasticsearch");
 	
-				JvmStats jvmStats = nodeStats.jvm();
+				JvmStats jvmStats = nodeStats.getJvm();
 				List<MetricDatum> jvmData = Lists.newArrayList();
 				jvmData.add(nodeDatum(now, nodeAddress, "JVMUptime", jvmStats.uptime().seconds(), StandardUnit.Seconds));
 	
@@ -214,7 +213,7 @@ public class CloudwatchPluginService extends AbstractLifecycleComponent<Cloudwat
 				request.setMetricData(jvmData);
 				cloudwatch.putMetricData(request);
     		} catch (AmazonClientException e) {
-    			logger.info("Exception thrown by amazon while sending JVMStats", e);
+    			logger.error("Exception thrown by amazon while sending JVMStats", e);
     		}
 		}
 
@@ -225,7 +224,7 @@ public class CloudwatchPluginService extends AbstractLifecycleComponent<Cloudwat
 				PutMetricDataRequest request = new PutMetricDataRequest();
 				request.setNamespace("9apps/Elasticsearch");
 	
-				OsStats osStats = nodeStats.os();
+				OsStats osStats = nodeStats.getOs();
 				
 				List<MetricDatum> osData = Lists.newArrayList();
 				
@@ -247,7 +246,7 @@ public class CloudwatchPluginService extends AbstractLifecycleComponent<Cloudwat
 				request.setMetricData(osData);
 				cloudwatch.putMetricData(request);
     		} catch (AmazonClientException e) {
-    			logger.info("Exception thrown by amazon while sending OsStats", e);
+    			logger.error("Exception thrown by amazon while sending OsStats", e);
     		}
 		}
 
@@ -266,10 +265,10 @@ public class CloudwatchPluginService extends AbstractLifecycleComponent<Cloudwat
 				    
 					// docs stats
 				    DocsStats docsStats = indexShard.docStats();
-					long count = ( docsStats != null ? docsStats.count() : 0 );
+					long count = ( docsStats != null ? docsStats.getCount() : 0 );
 				    data.add(nodeDatum(now, nodeAddress, "DocsCount", count, StandardUnit.Count, dimensions));
 				    
-					long deleted = ( docsStats != null ? docsStats.deleted() : 0 );
+					long deleted = ( docsStats != null ? docsStats.getDeleted() : 0 );
 	    	        data.add(nodeDatum(now, nodeAddress, "DocsDeleted", deleted, StandardUnit.Count, dimensions));
 		
 	    	        // store stats
@@ -282,7 +281,7 @@ public class CloudwatchPluginService extends AbstractLifecycleComponent<Cloudwat
 					cloudwatch.putMetricData(request);
 				}
 	    		} catch (AmazonClientException e) {
-	    			logger.info("Exception thrown by amazon while sending IndexStats", e);
+	    			logger.error("Exception thrown by amazon while sending IndexStats", e);
 	    		}
 		}
 
