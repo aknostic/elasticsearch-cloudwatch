@@ -109,7 +109,7 @@ public class CloudwatchPluginService extends AbstractLifecycleComponent<Cloudwat
             	client.admin().cluster().health(new ClusterHealthRequest(), new ActionListener<ClusterHealthResponse>() {
 					public void onResponse(ClusterHealthResponse healthResponse) {
 
-						logger.info("cluster name is [{}]", healthResponse.getClusterName());
+//						logger.info("cluster name is [{}]", healthResponse.getClusterName());
 						
 						PutMetricDataRequest request = new PutMetricDataRequest();
 						request.setNamespace("9apps/Elasticsearch");
