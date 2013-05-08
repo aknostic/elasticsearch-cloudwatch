@@ -5,7 +5,13 @@ This is an Elasticsearch plugin which posts ES stats to CloudWatch.
 
 # Shortcut to installing CloudwatchPlugin
 
+On Elasticsearch 0.20:
+
     $ bin/plugin -url https://s3-eu-west-1.amazonaws.com/downloads.9apps.net/elasticsearch-CloudwatchPlugin-0.20.5.zip -install CloudwatchPlugin
+
+On Elasticsearch 0.90:
+    
+    $ bin/plugin -url https://s3-eu-west-1.amazonaws.com/downloads.9apps.net/elasticsearch-CloudwatchPlugin-0.90.0.zip -install CloudwatchPlugin
 
 # Generating the installable plugin
 
