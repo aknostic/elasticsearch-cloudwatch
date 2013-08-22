@@ -10,6 +10,18 @@
 	<build>
 		<plugins>
 			<!-- Add/Edit items in META-INF/MANIFEST.MF -->
+
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>2.5.1</version>
+                <configuration>
+                    <source>1.7</source>
+                    <target>1.7</target>
+                    <showDeprecation>false</showDeprecation>
+		    <showWarnings>false</showWarnings>
+        	    <fork>true</fork>
+                </configuration>
+            </plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-jar-plugin</artifactId>
