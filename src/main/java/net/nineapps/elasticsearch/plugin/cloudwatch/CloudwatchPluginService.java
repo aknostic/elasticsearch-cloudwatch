@@ -3,14 +3,16 @@ package net.nineapps.elasticsearch.plugin.cloudwatch;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 
 import org.elasticsearch.ElasticSearchException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
-import org.elasticsearch.action.admin.cluster.health.ClusterHealthStatus;
 import org.elasticsearch.action.admin.cluster.node.stats.NodeStats;
 import org.elasticsearch.action.admin.indices.stats.CommonStatsFlags;
+import org.elasticsearch.action.admin.indices.status.DocsStatus;
+import org.elasticsearch.action.admin.indices.status.IndicesStatusResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.collect.Lists;
 import org.elasticsearch.common.component.AbstractLifecycleComponent;
@@ -129,7 +131,7 @@ public class CloudwatchPluginService extends AbstractLifecycleComponent<Cloudwat
 						data.add(clusterDatum(now, "RelocatingShards", (double) healthResponse.getRelocatingShards()));
 						data.add(clusterDatum(now, "InitializingShards", (double) healthResponse.getInitializingShards()));
 						data.add(clusterDatum(now, "UnassignedShards", (double) healthResponse.getUnassignedShards()));
-						
+
 						request.setMetricData(data);
 						cloudwatch.putMetricData(request);
 						
@@ -162,6 +164,7 @@ public class CloudwatchPluginService extends AbstractLifecycleComponent<Cloudwat
 	    			if (indexStatsEnabled) {
 	                    sendIndexStats(now, nodeAddress);
 	    		    }
+	    			
 	    			
 	    			// Most stats we copied from this plugin, selecting the ones that make sense for us: https://github.com/spinscale/elasticsearch-graphite-plugin/blob/master/src/main/java/org/elasticsearch/service/graphite/GraphiteService.java
 	    			
@@ -259,8 +262,37 @@ public class CloudwatchPluginService extends AbstractLifecycleComponent<Cloudwat
     			logger.error("Exception thrown by amazon while sending OsStats", e);
     		}
 		}
-
 		private void sendIndexStats(final Date now, String nodeAddress) {
+			try {
+				List<MetricDatum> data = Lists.newArrayList();
+				Set<String> indices = indicesService.indices();
+				for(String index : indices){
+					//Reset request per shard
+					PutMetricDataRequest request = new PutMetricDataRequest();
+					request.setNamespace("9apps/Elasticsearch");
+				
+					IndicesStatusResponse response = client.admin().indices().prepareStatus(index).setSnapshot(true).execute().actionGet();
+					
+					List<Dimension> dimensions = new ArrayList<Dimension>();
+				    dimensions.add(new Dimension().withName("IndexName").withValue(index));
+				    
+				    data.add(nodeDatum(now, nodeAddress, "FailedShards", response.getFailedShards(), StandardUnit.Count, dimensions));
+				    data.add(nodeDatum(now, nodeAddress, "SuccessfulShards", response.getSuccessfulShards(), StandardUnit.Count, dimensions));
+				    data.add(nodeDatum(now, nodeAddress, "TotalShards", response.getTotalShards(), StandardUnit.Count, dimensions));
+				    DocsStatus docsStats = response.getIndex(index).getDocs();
+				    long count = ( docsStats != null ? docsStats.getNumDocs() : 0 );
+				    data.add(nodeDatum(now, nodeAddress, "DocsCount", count, StandardUnit.Count, dimensions));
+					long deleted = ( docsStats != null ? docsStats.getDeletedDocs() : 0 );
+				    data.add(nodeDatum(now, nodeAddress, "DeletedDocsCount", deleted, StandardUnit.Count, dimensions));
+					request.setMetricData(data);
+					cloudwatch.putMetricData(request);
+				}
+	    	} catch (AmazonClientException e) {
+	    			logger.error("Exception thrown by amazon while sending IndexStats", e);
+	    	}
+		}
+
+		private void sendIndexStatsPerShard(final Date now, String nodeAddress) {
 			try {
 				List<MetricDatum> data = Lists.newArrayList();
 				List<IndexShard> indexShards = getIndexShards(indicesService);
