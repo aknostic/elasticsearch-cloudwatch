@@ -49,6 +49,8 @@ public class CloudwatchPluginService extends AbstractLifecycleComponent<Cloudwat
     private AmazonCloudWatch cloudwatch;
     private final String clusterName;
     private boolean indexStatsEnabled;
+	private boolean osStatsEnabled;
+	private boolean jvmStatsEnabled;
 	
 	@Inject
 	public CloudwatchPluginService(Settings settings, Client client,
@@ -62,6 +64,9 @@ public class CloudwatchPluginService extends AbstractLifecycleComponent<Cloudwat
         awsCredentials = new BasicAWSCredentials(accessKey, secretKey);
 
         indexStatsEnabled = settings.getAsBoolean("metrics.cloudwatch.index_stats_enabled", false);
+        osStatsEnabled = settings.getAsBoolean("metrics.cloudwatch.os_stats_enabled", false);
+        jvmStatsEnabled = settings.getAsBoolean("metrics.cloudwatch.jvm_stats_enabled", true);
+        
         String region = settings.get("metrics.cloudwatch.aws.region");
         logger.info("configured region is [{}]",region);
         cloudwatch = cloudwatchClient(region);
@@ -144,9 +149,13 @@ public class CloudwatchPluginService extends AbstractLifecycleComponent<Cloudwat
                 	// if it's still not there, we skip the node metrics this time
 //	                logger.info("node name is [{}]", nodeAddress);
 	                
-	    			sendOsStats(now, nodeStats, nodeAddress);
+                	if(osStatsEnabled){
+                		sendOsStats(now, nodeStats, nodeAddress);
+                	}
 
-	    			sendJVMStats(now, nodeStats, nodeAddress);
+                	if(jvmStatsEnabled){
+                		sendJVMStats(now, nodeStats, nodeAddress);
+                	}
 
 	    			sendDocsStats(now, nodeAddress, nodeIndicesStats);
 
