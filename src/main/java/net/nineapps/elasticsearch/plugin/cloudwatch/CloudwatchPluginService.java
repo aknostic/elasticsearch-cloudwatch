@@ -262,12 +262,12 @@ public class CloudwatchPluginService extends AbstractLifecycleComponent<Cloudwat
 
 		private void sendIndexStats(final Date now, String nodeAddress) {
 			try {
-				PutMetricDataRequest request = new PutMetricDataRequest();
-				request.setNamespace("9apps/Elasticsearch");
-
 				List<MetricDatum> data = Lists.newArrayList();
 				List<IndexShard> indexShards = getIndexShards(indicesService);
 				for (IndexShard indexShard : indexShards) {
+					//Reset request per shard
+					PutMetricDataRequest request = new PutMetricDataRequest();
+					request.setNamespace("9apps/Elasticsearch");
 					
 					List<Dimension> dimensions = new ArrayList<Dimension>();
 				    dimensions.add(new Dimension().withName("IndexName").withValue(indexShard.shardId().index().name()));
@@ -290,9 +290,9 @@ public class CloudwatchPluginService extends AbstractLifecycleComponent<Cloudwat
 					request.setMetricData(data);
 					cloudwatch.putMetricData(request);
 				}
-	    		} catch (AmazonClientException e) {
+	    	} catch (AmazonClientException e) {
 	    			logger.error("Exception thrown by amazon while sending IndexStats", e);
-	    		}
+	    	}
 		}
 
 		private MetricDatum nodeDatum(final Date timestamp, String nodeAddress, 
