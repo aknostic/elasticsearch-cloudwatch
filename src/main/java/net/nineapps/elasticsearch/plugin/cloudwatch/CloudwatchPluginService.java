@@ -50,6 +50,7 @@ public class CloudwatchPluginService extends AbstractLifecycleComponent<Cloudwat
     private AWSCredentials awsCredentials;
     private AmazonCloudWatch cloudwatch;
     private final String clusterName;
+    private boolean indexShardStatsEnabled;
     private boolean indexStatsEnabled;
 	private boolean osStatsEnabled;
 	private boolean jvmStatsEnabled;
@@ -66,6 +67,7 @@ public class CloudwatchPluginService extends AbstractLifecycleComponent<Cloudwat
         awsCredentials = new BasicAWSCredentials(accessKey, secretKey);
 
         indexStatsEnabled = settings.getAsBoolean("metrics.cloudwatch.index_stats_enabled", false);
+        indexShardStatsEnabled = settings.getAsBoolean("metrics.cloudwatch.index_shard_stats_enabled", false);
         osStatsEnabled = settings.getAsBoolean("metrics.cloudwatch.os_stats_enabled", false);
         jvmStatsEnabled = settings.getAsBoolean("metrics.cloudwatch.jvm_stats_enabled", true);
         
@@ -161,10 +163,13 @@ public class CloudwatchPluginService extends AbstractLifecycleComponent<Cloudwat
 
 	    			sendDocsStats(now, nodeAddress, nodeIndicesStats);
 
-	    			if (indexStatsEnabled) {
+	    			if(indexStatsEnabled) {
 	                    sendIndexStats(now, nodeAddress);
 	    		    }
 	    			
+	    			if(indexShardStatsEnabled){
+	    				sendIndexStatsPerShard(now, nodeAddress);
+	    			}
 	    			
 	    			// Most stats we copied from this plugin, selecting the ones that make sense for us: https://github.com/spinscale/elasticsearch-graphite-plugin/blob/master/src/main/java/org/elasticsearch/service/graphite/GraphiteService.java
 	    			
@@ -292,6 +297,14 @@ public class CloudwatchPluginService extends AbstractLifecycleComponent<Cloudwat
 	    	}
 		}
 
+		/**
+		 * @author aneesh 
+		 * The below method was getting an exception when putting the metrics on 
+		 * Cloudwatch so renamed sendIndexStat  to sendIndexStatsPerShard and rewrote 
+		 * the above sendIndexStats with different metrics.
+		 * @param now
+		 * @param nodeAddress
+		 */
 		private void sendIndexStatsPerShard(final Date now, String nodeAddress) {
 			try {
 				List<MetricDatum> data = Lists.newArrayList();
