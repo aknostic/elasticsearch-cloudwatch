@@ -254,10 +254,10 @@ public class CloudwatchPluginService extends AbstractLifecycleComponent<Cloudwat
 				PutMetricDataRequest request = new PutMetricDataRequest();
 				request.setNamespace("9apps/Elasticsearch");
 
-				List<MetricDatum> data = Lists.newArrayList();
 				List<IndexShard> indexShards = getIndexShards(indicesService);
 				for (IndexShard indexShard : indexShards) {
 					
+					List<MetricDatum> data = Lists.newArrayList();
 					List<Dimension> dimensions = new ArrayList<Dimension>();
 				    dimensions.add(new Dimension().withName("IndexName").withValue(indexShard.shardId().index().name()));
 				    dimensions.add(new Dimension().withName("ShardId").withValue(indexShard.shardId().id() + ""));
