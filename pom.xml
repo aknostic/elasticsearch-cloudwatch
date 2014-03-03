@@ -4,7 +4,7 @@
 	<groupId>net.nineapps.elasticsearch.plugin.cloudwatch</groupId>
 	<artifactId>CloudwatchPlugin</artifactId>
 	<packaging>jar</packaging>
-	<version>1.0</version>
+	<version>1.1</version>
 	<name>CloudwatchPlugin</name>
 	<url>http://maven.apache.org</url>
 	<build>
@@ -85,7 +85,7 @@
 		</resources>
 	</build>
 	<properties>
-		<elasticsearch.version>0.90.0</elasticsearch.version>
+		<elasticsearch.version>1.0.1</elasticsearch.version>
 	</properties>
 	<dependencies>
 		<dependency>

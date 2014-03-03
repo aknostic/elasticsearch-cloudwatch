@@ -2,9 +2,10 @@ package net.nineapps.elasticsearch.plugin.cloudwatch;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.List;
 
-import org.elasticsearch.ElasticSearchException;
+import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
@@ -24,6 +25,7 @@ import org.elasticsearch.index.store.StoreStats;
 import org.elasticsearch.indices.IndicesService;
 import org.elasticsearch.indices.NodeIndicesStats;
 import org.elasticsearch.monitor.jvm.JvmStats;
+import org.elasticsearch.monitor.jvm.JvmStats.GarbageCollector;
 import org.elasticsearch.monitor.os.OsStats;
 import org.elasticsearch.node.service.NodeService;
 
@@ -72,11 +74,11 @@ public class CloudwatchPluginService extends AbstractLifecycleComponent<Cloudwat
 	}
 
 	@Override
-	protected void doClose() throws ElasticSearchException {		
+	protected void doClose() throws ElasticsearchException {		
 	}
 
 	@Override
-	protected void doStart() throws ElasticSearchException {
+	protected void doStart() throws ElasticsearchException {
         cloudwatchThread = EsExecutors.daemonThreadFactory(settings, "cloudwatch_poster")
         		.newThread(new CloudwatchPoster());
         cloudwatchThread.start();
@@ -84,7 +86,7 @@ public class CloudwatchPluginService extends AbstractLifecycleComponent<Cloudwat
 	}
 
 	@Override
-	protected void doStop() throws ElasticSearchException {
+	protected void doStop() throws ElasticsearchException {
         if (stopped) {
             return;
         }
@@ -134,7 +136,7 @@ public class CloudwatchPluginService extends AbstractLifecycleComponent<Cloudwat
 				});
 
 //                logger.info("node attributes is [{}]", nodeService.attributes());
-                NodeStats nodeStats = nodeService.stats(new CommonStatsFlags().clear(), true, false, true, false, false, false, false, false);
+                NodeStats nodeStats = nodeService.stats(new CommonStatsFlags().clear(), true, false, true, false, false, false, false, false, false);
 
                 String nodeAddress = nodeService.attributes().get("http_address");
                 if (nodeAddress != null) {
@@ -206,8 +208,18 @@ public class CloudwatchPluginService extends AbstractLifecycleComponent<Cloudwat
 				jvmData.add(nodeDatum(now, nodeAddress, "JVMThreadPeak", jvmStats.threads().peakCount(), StandardUnit.Count));
 	
 				// garbage collectors
-				jvmData.add(nodeDatum(now, nodeAddress, "JVMGCCollectionCount", jvmStats.gc().collectionCount(), StandardUnit.Count));
-				jvmData.add(nodeDatum(now, nodeAddress, "JVMGCCollectionTime", jvmStats.gc().collectionTime().seconds(), StandardUnit.Seconds));
+				Iterator<GarbageCollector> gcs = jvmStats.gc().iterator();
+				long collectionCount = 0;
+				long collectionTime = 0;
+				while (gcs.hasNext()) {
+					GarbageCollector gc = gcs.next();
+					collectionCount += gc.collectionCount();
+					collectionTime += gc.collectionTime().seconds();
+				}
+				
+				
+				jvmData.add(nodeDatum(now, nodeAddress, "JVMGCCollectionCount", collectionCount, StandardUnit.Count));
+				jvmData.add(nodeDatum(now, nodeAddress, "JVMGCCollectionTime", collectionTime, StandardUnit.Seconds));
 
 				request.setMetricData(jvmData);
 				cloudwatch.putMetricData(request);
