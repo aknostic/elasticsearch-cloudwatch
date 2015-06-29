@@ -18,9 +18,9 @@ import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.EsExecutors;
-import org.elasticsearch.index.service.IndexService;
+import org.elasticsearch.index.IndexService;
 import org.elasticsearch.index.shard.DocsStats;
-import org.elasticsearch.index.shard.service.IndexShard;
+import org.elasticsearch.index.shard.IndexShard;
 import org.elasticsearch.index.store.StoreStats;
 import org.elasticsearch.indices.IndicesService;
 import org.elasticsearch.indices.NodeIndicesStats;
@@ -266,31 +266,59 @@ public class CloudwatchPluginService extends AbstractLifecycleComponent<Cloudwat
 				PutMetricDataRequest request = new PutMetricDataRequest();
 				request.setNamespace("9apps/Elasticsearch");
 
-				List<IndexShard> indexShards = getIndexShards(indicesService);
-				for (IndexShard indexShard : indexShards) {
-					
+				Iterator iterator = indicesService.iterator();
+				while(iterator.hasNext()) {
+					IndexShard indexShard = (IndexShard) iterator.next();
+
 					List<MetricDatum> data = Lists.newArrayList();
 					List<Dimension> dimensions = new ArrayList<Dimension>();
-				    dimensions.add(new Dimension().withName("IndexName").withValue(indexShard.shardId().index().name()));
-				    dimensions.add(new Dimension().withName("ShardId").withValue(indexShard.shardId().id() + ""));
-				    
+					dimensions.add(new Dimension().withName("IndexName").withValue(indexShard.shardId().index().name()));
+					dimensions.add(new Dimension().withName("ShardId").withValue(indexShard.shardId().id() + ""));
+
 					// docs stats
-				    DocsStats docsStats = indexShard.docStats();
+					DocsStats docsStats = indexShard.docStats();
 					long count = ( docsStats != null ? docsStats.getCount() : 0 );
-				    data.add(nodeDatum(now, nodeAddress, "DocsCount", count, StandardUnit.Count, dimensions));
-				    
+					data.add(nodeDatum(now, nodeAddress, "DocsCount", count, StandardUnit.Count, dimensions));
+
 					long deleted = ( docsStats != null ? docsStats.getDeleted() : 0 );
-	    	        data.add(nodeDatum(now, nodeAddress, "DocsDeleted", deleted, StandardUnit.Count, dimensions));
-		
-	    	        // store stats
-	    	        StoreStats storeStats = indexShard.storeStats();
-	    	        
-	    	        data.add(nodeDatum(now, nodeAddress, "StoreSize", storeStats.sizeInBytes(), StandardUnit.Bytes, dimensions));
-	    	        data.add(nodeDatum(now, nodeAddress, "StoreThrottleTimeInNanos", storeStats.throttleTime().getNanos(), StandardUnit.None, dimensions));
+					data.add(nodeDatum(now, nodeAddress, "DocsDeleted", deleted, StandardUnit.Count, dimensions));
+
+					// store stats
+					StoreStats storeStats = indexShard.storeStats();
+
+					data.add(nodeDatum(now, nodeAddress, "StoreSize", storeStats.sizeInBytes(), StandardUnit.Bytes, dimensions));
+					data.add(nodeDatum(now, nodeAddress, "StoreThrottleTimeInNanos", storeStats.throttleTime().getNanos(), StandardUnit.None, dimensions));
 
 					request.setMetricData(data);
 					cloudwatch.putMetricData(request);
+
 				}
+
+//				List<IndexShard> indexShards = getIndexShards(indicesService);
+//				for (IndexShard indexShard : indexShards) {
+//
+//					List<MetricDatum> data = Lists.newArrayList();
+//					List<Dimension> dimensions = new ArrayList<Dimension>();
+//				    dimensions.add(new Dimension().withName("IndexName").withValue(indexShard.shardId().index().name()));
+//				    dimensions.add(new Dimension().withName("ShardId").withValue(indexShard.shardId().id() + ""));
+//
+//					// docs stats
+//				    DocsStats docsStats = indexShard.docStats();
+//					long count = ( docsStats != null ? docsStats.getCount() : 0 );
+//				    data.add(nodeDatum(now, nodeAddress, "DocsCount", count, StandardUnit.Count, dimensions));
+//
+//					long deleted = ( docsStats != null ? docsStats.getDeleted() : 0 );
+//	    	        data.add(nodeDatum(now, nodeAddress, "DocsDeleted", deleted, StandardUnit.Count, dimensions));
+//
+//	    	        // store stats
+//	    	        StoreStats storeStats = indexShard.storeStats();
+//
+//	    	        data.add(nodeDatum(now, nodeAddress, "StoreSize", storeStats.sizeInBytes(), StandardUnit.Bytes, dimensions));
+//	    	        data.add(nodeDatum(now, nodeAddress, "StoreThrottleTimeInNanos", storeStats.throttleTime().getNanos(), StandardUnit.None, dimensions));
+//
+//					request.setMetricData(data);
+//					cloudwatch.putMetricData(request);
+//				}
 	    		} catch (AmazonClientException e) {
 	    			logger.error("Exception thrown by amazon while sending IndexStats", e);
 	    		}
@@ -354,15 +382,15 @@ public class CloudwatchPluginService extends AbstractLifecycleComponent<Cloudwat
 		return cloudwatch;
 	}
 
-    private List<IndexShard> getIndexShards(IndicesService indicesService) {
-        List<IndexShard> indexShards = Lists.newArrayList();
-        String[] indices = indicesService.indices().toArray(new String[]{});
-        for (String indexName : indices) {
-            IndexService indexService = indicesService.indexServiceSafe(indexName);
-            for (int shardId : indexService.shardIds()) {
-                indexShards.add(indexService.shard(shardId));
-            }
-        }
-        return indexShards;
-    }
+//    private List<IndexShard> getIndexShards(IndicesService indicesService) {
+//        List<IndexShard> indexShards = Lists.newArrayList();
+//        String[] indices = indicesService.indices().toArray(new String[]{});
+//        for (String indexName : indices) {
+//            IndexService indexService = indicesService.indexServiceSafe(indexName);
+//            for (int shardId : indexService.shardIds()) {
+//                indexShards.add(indexService.shard(shardId));
+//            }
+//        }
+//        return indexShards;
+//    }
 }
