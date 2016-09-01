@@ -1,14 +1,13 @@
-package net.nineapps.elasticsearch.plugin.cloudwatch;
-
-import static org.elasticsearch.common.collect.Lists.newArrayList;
-
-import java.util.Collection;
+package com.elasticsearch.plugin.cloudwatch;
 
 import org.elasticsearch.common.component.LifecycleComponent;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.plugins.AbstractPlugin;
+import org.elasticsearch.plugins.Plugin;
 
-public class CloudwatchPlugin extends AbstractPlugin {
+import java.util.ArrayList;
+import java.util.Collection;
+
+public class CloudwatchPlugin extends Plugin {
 
     private final Settings settings;
 
@@ -18,17 +17,19 @@ public class CloudwatchPlugin extends AbstractPlugin {
 
     public String name() {
         return "cloudwatch-plugin";
-	}
+    }
 
-	public String description() {
+    public String description() {
         return "Plugin which stores cluster state stats in Cloudwatch";
-	}
-	
+    }
+
+
     @Override
-    public Collection<Class<? extends LifecycleComponent>> services() {
-		Collection<Class<? extends LifecycleComponent>> services = newArrayList();
+    public Collection<Class<? extends LifecycleComponent>> nodeServices() {
+        Collection<Class<? extends LifecycleComponent>> services = new ArrayList<Class<? extends LifecycleComponent>>();
         if (settings.getAsBoolean("metrics.cloudwatch.enabled", true)) {
             services.add(CloudwatchPluginService.class);
         }
         return services;
-    }}
+    }
+}
